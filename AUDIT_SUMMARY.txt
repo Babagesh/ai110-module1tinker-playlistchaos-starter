@@ -1,0 +1,164 @@
+================================================================================
+                    PLAYLIST CHAOS - CODE AUDIT SUMMARY
+================================================================================
+
+Date: March 4, 2026
+Auditor: Claude Code Agent (Bug Audit Specialist)
+Files Analyzed: 2 (playlist_logic.py, app.py)
+
+================================================================================
+OVERVIEW
+================================================================================
+
+TOTAL ISSUES FOUND: 12
+  - CRITICAL: 4 issues (will crash or completely break features)
+  - HIGH:     5 issues (data mutations, incorrect behavior)
+  - MEDIUM:   3 issues (inconsistencies, UX problems)
+
+All bugs have been annotated INLINE in the source files with comments in format:
+  # BUG: <description>
+  # FIX: <suggested solution>
+
+================================================================================
+CRITICAL ISSUES (Must Fix Immediately)
+================================================================================
+
+1. SEARCH BROKEN (playlist_logic.py:185)
+   Problem: Logic inverted - checks "value in query" instead of "query in value"
+   Impact: Search feature doesn't work at all
+   Fix: Change line 185 from "if value and value in q:" to "if value and q in value:"
+
+2. LUCKY PICK CRASHES (playlist_logic.py:212)
+   Problem: random_choice_or_none() raises IndexError on empty list instead of returning None
+   Impact: App crashes when clicking "Feeling lucky" with certain playlist configurations
+   Fix: Add "if not songs: return None" before random.choice(songs)
+
+3. STATISTICS WRONG - HYPE RATIO (playlist_logic.py:129)
+   Problem: Calculates hype_ratio = len(hype) / len(hype) which always = 1.0
+   Impact: Hype ratio metric is meaningless (always 1.0 or 0)
+   Fix: Change line 129 from "total = len(hype)" to "total = len(all_songs)"
+
+4. STATISTICS WRONG - AVERAGE ENERGY (playlist_logic.py:136)
+   Problem: Sums energy only from hype songs, then divides by all songs
+   Impact: Average energy metric is completely skewed
+   Fix: Change line 136 from "for song in hype" to "for song in all_songs"
+
+================================================================================
+HIGH PRIORITY ISSUES (Fix Soon)
+================================================================================
+
+5. DATA MUTATION (playlist_logic.py:112)
+   Problem: merge_playlists() mutates input dict via .extend() on reference
+   Impact: Original playlist data is silently corrupted after merge
+   Fix: Change "merged[key] = a.get(key, [])" to "merged[key] = a.get(key, [])[:"]
+
+6. SONG MISCLASSIFICATION (playlist_logic.py:80)
+   Problem: Chill keywords checked in title field; hype keywords in genre field
+   Impact: Genre "lofi" won't be classified as Chill unless title also contains keyword
+   Fix: Change line 80 to check "genre" instead of "title"
+
+7. USER PREFERENCE LOST (app.py:218)
+   Problem: Selectbox index hardcoded to 0, ignoring saved favorite_genre
+   Impact: Favorite genre preference always resets to "rock" on page refresh
+   Fix: Compute index from current value instead of hardcoding
+
+8. DERIVATIVE MUTATION (app.py:409)
+   Problem: Calls merge_playlists() which mutates base_playlists
+   Impact: Original playlists dict is corrupted
+   Fix: Will resolve once #5 is fixed
+
+================================================================================
+MEDIUM PRIORITY ISSUES (Polish & Improve)
+================================================================================
+
+9. TYPE CHECK INCONSISTENCY (playlist_logic.py:22-28)
+   Problem: normalize_artist() lacks isinstance check that normalize_title() has
+   Impact: Could crash if non-string passed
+   Fix: Add isinstance(artist, str) check
+
+10. FRAGILE KEYWORD MATCHING (playlist_logic.py:77)
+    Problem: Substring matching without word boundaries ("rock" matches any genre containing "rock")
+    Impact: Works now but will break with genre list expansion
+    Fix: Use word boundary matching or split-and-compare approach
+
+11. SILENT FAILURE ON INPUT (app.py:242)
+    Problem: Adding song without title/artist silently fails with no user feedback
+    Impact: User confuses silent failure for success
+    Fix: Show error/warning message if title or artist missing
+
+12. INCOMPLETE ERROR HANDLING (app.py:314)
+    Problem: Try/catch and None handling redundant once random_choice_or_none fixed
+    Impact: Defensive code that won't actually prevent the crash
+    Fix: Will resolve once #2 is fixed
+
+================================================================================
+ACTION ITEMS FOR DEVELOPER
+================================================================================
+
+IMMEDIATE (Do first - all critical):
+  [ ] Fix search_songs() logic (1 line change)
+  [ ] Fix random_choice_or_none() empty list (2 line change)
+  [ ] Fix hype_ratio denominator (1 line change)
+  [ ] Fix avg_energy to use all songs (1 line change)
+
+PRIORITY (Do next - all high):
+  [ ] Fix merge_playlists() mutation (1 line change)
+  [ ] Fix chill_keyword check field (1 line change)
+  [ ] Fix favorite_genre selectbox persistence (3 line change)
+
+POLISH (Do after critical/high are fixed):
+  [ ] Add type checking to normalize_artist()
+  [ ] Improve keyword matching robustness
+  [ ] Add input validation feedback
+  [ ] Clean up error handling
+
+================================================================================
+HOW TO REVIEW FIXES
+================================================================================
+
+All issues are marked with "# BUG:" and "# FIX:" comments at their location.
+
+For example:
+    line 185 in playlist_logic.py:
+
+    # BUG: Search logic inverted - checks if value is in query instead of query in value
+    # FIX: Change to if value and q in value: to correctly match songs
+    if value and value in q:  <-- This is the problem line
+
+Each comment explains:
+  1. What the bug is
+  2. Why it matters
+  3. How to fix it
+
+================================================================================
+DOCUMENTATION PROVIDED
+================================================================================
+
+1. AUDIT_REPORT.md
+   - Comprehensive audit report with all 12 issues
+   - Severity levels and impact analysis
+   - Priority recommendations
+   - Code quality observations
+
+2. FIX_GUIDE.md
+   - Detailed before/after code for each fix
+   - Multiple fix options where applicable
+   - Testing guidance
+   - Implementation order recommendations
+
+3. AUDIT_SUMMARY.txt (this file)
+   - Quick reference checklist
+   - Critical items highlighted
+   - Action items organized by priority
+
+================================================================================
+ESTIMATED EFFORT
+================================================================================
+
+Critical fixes: ~15 minutes
+High priority fixes: ~30 minutes
+Medium priority improvements: ~1 hour
+
+Total: ~2 hours to fix all issues
+
+================================================================================

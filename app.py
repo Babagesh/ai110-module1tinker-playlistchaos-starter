@@ -210,6 +210,8 @@ def profile_sidebar():
             value=int(profile.get("chill_max_energy", 3)),
         )
 
+    # BUG: selectbox always resets to index 0 on rerun, ignoring current profile value
+    # FIX: Get current index from options list: current_genre = profile.get("favorite_genre", "rock"); index = options.index(current_genre) if current_genre in options else 0
     profile["favorite_genre"] = st.sidebar.selectbox(
         "Favorite genre",
         options=["rock", "lofi", "pop", "jazz", "electronic", "ambient", "other"],
@@ -248,6 +250,8 @@ def add_song_sidebar():
             "energy": energy,
             "tags": tags,
         }
+        # BUG: No validation for empty energy value or tags_text - energy defaults to 5, but empty tags could cause issues
+        # FIX: Consider adding validation: if not title or not artist: st.warning("Title and Artist are required"); return
         if title and artist:
             normalized = normalize_song(song)
             all_songs = st.session_state.songs[:]
@@ -277,6 +281,8 @@ def render_playlist(label, songs):
         return
 
     query = st.text_input(f"Search {label} playlist by artist", key=f"search_{label}")
+    # BUG: search_songs has inverted logic (value in q instead of q in value), so search will never work correctly
+    # FIX: Fix search_songs function in playlist_logic.py to use correct comparison logic
     filtered = search_songs(songs, query, field="artist")
 
     if not filtered:
@@ -305,6 +311,8 @@ def lucky_section(playlists):
 
     if st.button("Feeling lucky"):
         pick = lucky_pick(playlists, mode=mode)
+        # BUG: If pick is None (due to empty list in random_choice_or_none), the function returns with warning, but doesn't handle the IndexError that could be raised earlier
+        # FIX: random_choice_or_none should handle empty lists instead of raising IndexError (see playlist_logic.py line 212)
         if pick is None:
             st.warning("No songs available for this mode.")
             return
@@ -332,7 +340,11 @@ def stats_section(playlists):
 
     col4, col5, col6 = st.columns(3)
     col4.metric("Mixed songs", stats["mixed_count"])
+    # BUG: hype_ratio calculation is incorrect (see playlist_logic.py line 131) - will always be 1.0 or 0 instead of actual ratio
+    # FIX: Fix compute_playlist_stats to use len(all_songs) as denominator instead of len(hype)
     col5.metric("Hype ratio", f"{stats['hype_ratio']:.2f}")
+    # BUG: avg_energy calculation is incorrect (see playlist_logic.py line 140) - averages only hype songs, not all songs
+    # FIX: Fix compute_playlist_stats to sum energy from all_songs instead of just hype songs
     col6.metric("Average energy", f"{stats['avg_energy']:.2f}")
 
     top_artist = stats["top_artist"]
@@ -392,6 +404,8 @@ def main():
     songs = st.session_state.songs
 
     base_playlists = build_playlists(songs, profile)
+    # BUG: merge_playlists mutates base_playlists due to in-place list extension (see playlist_logic.py line 112)
+    # FIX: Either fix merge_playlists to not mutate input, or don't use merged_playlists and use base_playlists directly
     merged_playlists = merge_playlists(base_playlists, {})
 
     playlist_tabs(merged_playlists)

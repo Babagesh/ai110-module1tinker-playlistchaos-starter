@@ -21,6 +21,8 @@ def normalize_title(title: str) -> str:
 
 def normalize_artist(artist: str) -> str:
     """Normalize an artist name for comparisons."""
+    # BUG: Type mismatch - function expects str but may receive non-string, unlike normalize_title which has isinstance check
+    # FIX: Add isinstance check like normalize_title does, or ensure only strings are passed and handle None gracefully
     if not artist:
         return ""
     return artist.strip().lower()
@@ -70,7 +72,11 @@ def classify_song(song: Song, profile: Dict[str, object]) -> str:
     hype_keywords = ["rock", "punk", "party"]
     chill_keywords = ["lofi", "ambient", "sleep"]
 
+    # BUG: Substring matching is too broad - "rock" in genre will match "electronic" if it contains "rock" as substring
+    # FIX: Use exact word matching or regex word boundary matching, or split genre and compare individual words
     is_hype_keyword = any(k in genre for k in hype_keywords)
+    # BUG: is_chill_keyword checks title instead of genre
+    # FIX: Change to check `genre` instead of `title` to match the pattern used for hype keywords (line above)
     is_chill_keyword = any(k in title for k in chill_keywords)
 
     if genre == favorite_genre or energy >= hype_min_energy or is_hype_keyword:
@@ -101,6 +107,8 @@ def merge_playlists(a: PlaylistMap, b: PlaylistMap) -> PlaylistMap:
     """Merge two playlist maps into a new map."""
     merged: PlaylistMap = {}
     for key in set(list(a.keys()) + list(b.keys())):
+        # BUG: In-place mutation of list from `a` due to missing copy
+        # FIX: Create a copy of the list before extending: merged[key] = a.get(key, [])[:] instead of merged[key] = a.get(key, [])
         merged[key] = a.get(key, [])
         merged[key].extend(b.get(key, []))
     return merged
@@ -116,11 +124,15 @@ def compute_playlist_stats(playlists: PlaylistMap) -> Dict[str, object]:
     chill = playlists.get("Chill", [])
     mixed = playlists.get("Mixed", [])
 
+    # BUG: total should be len(all_songs), not len(hype)
+    # FIX: Change to total = len(all_songs). Currently hype_ratio = len(hype) / len(hype) which always equals 1.0 (or 0 if empty), not the actual proportion of hype songs
     total = len(hype)
     hype_ratio = len(hype) / total if total > 0 else 0.0
 
     avg_energy = 0.0
     if all_songs:
+        # BUG: avg_energy computed only over hype songs, not all songs
+        # FIX: Change to total_energy = sum(song.get("energy", 0) for song in all_songs) to average across all playlists, not just Hype
         total_energy = sum(song.get("energy", 0) for song in hype)
         avg_energy = total_energy / len(all_songs)
 
@@ -168,6 +180,8 @@ def search_songs(
 
     for song in songs:
         value = str(song.get(field, "")).lower()
+        # BUG: Search logic inverted - checks if value is in query instead of query in value
+        # FIX: Change to if value and q in value: to correctly match songs where the query appears in the field value
         if value and value in q:
             filtered.append(song)
 
@@ -193,6 +207,8 @@ def random_choice_or_none(songs: List[Song]) -> Optional[Song]:
     """Return a random song or None."""
     import random
 
+    # BUG: Does not handle empty list - random.choice() will raise IndexError on empty sequence
+    # FIX: Add check: if not songs: return None; before random.choice(songs)
     return random.choice(songs)
 
 
